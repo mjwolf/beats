@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"time"
 
+	"encoding/base64"
+
 	"github.com/elastic/beats/v7/libbeat/beat"
 	"github.com/elastic/beats/v7/libbeat/common"
 	"github.com/elastic/beats/v7/libbeat/common/atomic"
@@ -67,12 +69,21 @@ type addProcessMetadata struct {
 	mappings     mapstr.M
 }
 
+type subProcMetadata struct {
+	pid                          int
+	startTime                    time.Time
+	name, exe, working_directory string
+	args                         []string
+	interactive                  bool
+}
+
 type processMetadata struct {
-	name, title, exe, username, userid string
-	args                               []string
-	env                                map[string]string
-	startTime                          time.Time
-	pid, ppid                          int
+	name, title, exe, username, userid                 string
+	args                                               []string
+	env                                                map[string]string
+	startTime                                          time.Time
+	pid, ppid, session, pgrp, tty, tpgid               int
+	parent, session_leader, group_leader, entry_leader subProcMetadata
 	//
 	fields mapstr.M
 }
@@ -310,6 +321,7 @@ func (p *addProcessMetadata) String() string {
 }
 
 func (p *processMetadata) toMap() mapstr.M {
+	// Don't trust the new fields, many aren't correct
 	process := mapstr.M{
 		"name":       p.name,
 		"title":      p.title,
@@ -318,9 +330,66 @@ func (p *processMetadata) toMap() mapstr.M {
 		"env":        p.env,
 		"pid":        p.pid,
 		"parent": mapstr.M{
-			"pid": p.ppid,
+			"args":              p.parent.args,
+			"entity_id":         calculate_entity_id(p.parent.pid, p.parent.startTime),
+			"executable":        p.parent.exe,
+			"name":              p.parent.name,
+			"pid":               p.parent.pid,
+			"working_directory": p.parent.working_directory,
+			"user": mapstr.M{
+				"id": p.userid,
+			},
+			"start": p.parent.startTime,
 		},
-		"start_time": p.startTime,
+		"entity_id": calculate_entity_id(p.pid, p.startTime),
+		"start":     p.startTime,
+		"session_leader": mapstr.M{
+			"args":              "",
+			"entity_id":         calculate_entity_id(p.session_leader.pid, p.session_leader.startTime),
+			"executable":        p.session_leader.exe,
+			"name":              p.session_leader.name,
+			"pid":               p.session_leader.pid,
+			"working_directory": "/",
+			"user": mapstr.M{
+				"id": p.userid,
+			},
+			"start": p.session_leader.startTime,
+		},
+		"group_leader": mapstr.M{
+			"pid":               p.group_leader.pid,
+			"entity_id":         calculate_entity_id(p.group_leader.pid, p.group_leader.startTime),
+			"executable":        p.group_leader.exe,
+			"name":              p.group_leader.name,
+			"working_directory": p.group_leader.working_directory,
+			"interactive":       p.group_leader.interactive,
+			"type":              "container",
+			"start":             p.group_leader.startTime,
+			"user": mapstr.M{
+				"id": p.userid,
+			},
+		},
+		"entry_leader": mapstr.M{
+			"args":              p.entry_leader.args,
+			"entity_id":         calculate_entity_id(p.session_leader.pid, p.session_leader.startTime),
+			"executable":        p.entry_leader.exe,
+			"name":              p.entry_leader.name,
+			"pid":               p.entry_leader.pid,
+			"working_directory": p.entry_leader.working_directory,
+			"interactive":       p.entry_leader.interactive,
+			"type":              "container",
+			"user": mapstr.M{
+				"id": p.userid,
+			},
+			"start": p.entry_leader.startTime,
+		},
+		"tty": mapstr.M{
+			"char_device": mapstr.M{
+				"major": p.tty >> 8,
+				"minor": p.tty & 0xff,
+			},
+		},
+		//TODO: Is this the correct definition of interactive?
+		"interactive": (p.tty >> 8) != 0,
 	}
 	if p.username != "" || p.userid != "" {
 		user := mapstr.M{}
@@ -336,4 +405,18 @@ func (p *processMetadata) toMap() mapstr.M {
 	return mapstr.M{
 		"process": process,
 	}
+}
+
+func calculate_entity_id(pid int, startTime time.Time) string {
+	return base64.StdEncoding.EncodeToString(
+		[]byte(
+			fmt.Sprintf("%s__%s__%d__%s",
+				//TODO: Calculate properly...
+				"0000-1111",
+				"2222-3333",
+				pid,
+				startTime,
+			),
+		),
+	)
 }

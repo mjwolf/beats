@@ -18,6 +18,8 @@
 package add_process_metadata
 
 import (
+	"fmt"
+	"os"
 	"os/user"
 	"strings"
 
@@ -53,17 +55,54 @@ func (p gosysinfoProvider) GetProcessMetadata(pid int) (result *processMetadata,
 	}
 
 	r := processMetadata{
-		name:      info.Name,
-		args:      info.Args,
-		env:       env,
-		title:     strings.Join(info.Args, " "),
-		exe:       info.Exe,
-		pid:       info.PID,
-		ppid:      info.PPID,
-		startTime: info.StartTime,
-		username:  username,
-		userid:    userid,
+		name:           info.Name,
+		args:           info.Args,
+		env:            env,
+		title:          strings.Join(info.Args, " "),
+		exe:            info.Exe,
+		pid:            info.PID,
+		ppid:           info.PPID,
+		startTime:      info.StartTime,
+		username:       username,
+		userid:         userid,
+		session:        info.Session,
+		pgrp:           info.PGRP,
+		tty:            info.TTY,
+		tpgid:          info.TPGID,
+		parent:         p.getSubProc(info.PPID),
+		session_leader: p.getSubProc(info.Session),
+		group_leader:   p.getSubProc(info.PGRP),
+		//TODO: use real entry_leader, not session_leader
+		entry_leader: p.getSubProc(info.Session),
 	}
 	r.fields = r.toMap()
 	return &r, nil
+}
+
+func (p gosysinfoProvider) getSubProc(pid int) subProcMetadata {
+	proc, err := sysinfo.Process(pid)
+	if err != nil {
+		// Most likely because the process ended before it was scrapped
+		fmt.Fprintf(os.Stderr, "Failed to get proc for %d", pid)
+		return subProcMetadata{}
+	}
+
+	info, err := proc.Info()
+	if err != nil {
+		// Most likely because the process ended before it was scrapped
+		fmt.Fprintf(os.Stderr, "Failed to get proc info for %d", pid)
+		return subProcMetadata{}
+	}
+
+	meta := subProcMetadata{
+		pid:               info.PID,
+		exe:               info.Exe,
+		startTime:         info.StartTime,
+		name:              info.Name,
+		working_directory: "/foo",
+		args:              info.Args,
+		interactive:       (info.TTY >> 8) != 0,
+	}
+
+	return meta
 }

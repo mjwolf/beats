@@ -77,14 +77,54 @@ var defaultFields = mapstr.M{
 		"executable": nil,
 		"args":       nil,
 		"pid":        nil,
+		"entity_id":  nil,
+		"user": mapstr.M{
+			"id": nil,
+		},
 		"parent": mapstr.M{
-			"pid": nil,
+			"args":              nil,
+			"entity_id":         nil,
+			"executable":        nil,
+			"name":              nil,
+			"pid":               nil,
+			"working_directory": nil,
+			"user": mapstr.M{
+				"id": nil,
+			},
 		},
 		"start_time": nil,
 		"owner": mapstr.M{
 			"name": nil,
 			"id":   nil,
 		},
+		"session_leader": mapstr.M{
+			"pid":       nil,
+			"entity_id": nil,
+		},
+		"group_leader": mapstr.M{
+			"pid":       nil,
+			"entity_id": nil,
+		},
+		"entry_leader": mapstr.M{
+			"name":              nil,
+			"executable":        nil,
+			"args":              nil,
+			"pid":               nil,
+			"entity_id":         nil,
+			"working_directory": nil,
+			"interactive":       nil,
+			"type":              nil,
+			"user": mapstr.M{
+				"id": nil,
+			},
+		},
+		"tty": mapstr.M{
+			"char_device": mapstr.M{
+				"major": nil,
+				"minor": nil,
+			},
+		},
+		"interactive": nil,
 	},
 	"container": mapstr.M{
 		"id": nil,
