@@ -99,7 +99,7 @@ func (p gosysinfoProvider) getSubProc(pid int) subProcMetadata {
 		exe:               info.Exe,
 		startTime:         info.StartTime,
 		name:              info.Name,
-		working_directory: "/foo",
+		working_directory: info.CWD,
 		args:              info.Args,
 		interactive:       (info.TTY >> 8) != 0,
 	}
