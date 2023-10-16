@@ -88,17 +88,24 @@ func defaultConfig() config {
 }
 
 type storeConfig struct {
-	Memory *id `config:"memory"`
-	File   *id `config:"file"`
+	Memory *memConfig  `config:"memory"`
+	File   *fileConfig `config:"file"`
 
-	// Capacity and Effort are currently experimental
-	// and not in public-facing documentation.
+	// Capacity is the number of elements that may be stored.
 	Capacity int `config:"capacity"`
-	Effort   int `config:"eviction_effort"`
+
+	// Effort is currently experimental and
+	// not in public-facing documentation.
+	Effort int `config:"eviction_effort"`
 }
 
-type id struct {
-	ID string `config:"id"`
+type memConfig struct {
+	ID string `config:"id" validate:"required"`
+}
+
+type fileConfig struct {
+	ID            string        `config:"id" validate:"required"`
+	WriteOutEvery time.Duration `config:"write_interval"`
 }
 
 func (cfg *storeConfig) Validate() error {

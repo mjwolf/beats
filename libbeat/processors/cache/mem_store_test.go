@@ -42,7 +42,7 @@ var memStoreTests = []struct {
 		name: "new_put",
 		cfg: config{
 			Store: &storeConfig{
-				Memory:   &id{"test"},
+				Memory:   &memConfig{"test"},
 				Capacity: 1000,
 				Effort:   10,
 			},
@@ -63,7 +63,7 @@ var memStoreTests = []struct {
 		name: "new_get",
 		cfg: config{
 			Store: &storeConfig{
-				Memory:   &id{"test"},
+				Memory:   &memConfig{"test"},
 				Capacity: 1000,
 				Effort:   10,
 			},
@@ -83,7 +83,7 @@ var memStoreTests = []struct {
 		name: "new_delete",
 		cfg: config{
 			Store: &storeConfig{
-				Memory:   &id{"test"},
+				Memory:   &memConfig{"test"},
 				Capacity: 1000,
 				Effort:   10,
 			},
@@ -103,7 +103,7 @@ var memStoreTests = []struct {
 		name: "new_get_add_put",
 		cfg: config{
 			Store: &storeConfig{
-				Memory:   &id{"test"},
+				Memory:   &memConfig{"test"},
 				Capacity: 1000,
 				Effort:   10,
 			},
@@ -123,7 +123,7 @@ var memStoreTests = []struct {
 				doTo: func(s *memStore) error {
 					putCfg := config{
 						Store: &storeConfig{
-							Memory:   &id{"test"},
+							Memory:   &memConfig{"test"},
 							Capacity: 1000,
 							Effort:   10,
 						},
@@ -149,7 +149,7 @@ var memStoreTests = []struct {
 		name: "ensemble",
 		cfg: config{
 			Store: &storeConfig{
-				Memory:   &id{"test"},
+				Memory:   &memConfig{"test"},
 				Capacity: 1000,
 				Effort:   10,
 			},
@@ -169,7 +169,7 @@ var memStoreTests = []struct {
 				doTo: func(s *memStore) error {
 					putCfg := config{
 						Store: &storeConfig{
-							Memory:   &id{"test"},
+							Memory:   &memConfig{"test"},
 							Capacity: 1000,
 							Effort:   10,
 						},
@@ -184,6 +184,7 @@ var memStoreTests = []struct {
 					id:     "test",
 					cache:  map[string]*CacheEntry{},
 					refs:   2,
+					dirty:  false,
 					ttl:    time.Second,
 					cap:    1000,
 					effort: 10,
@@ -199,16 +200,17 @@ var memStoreTests = []struct {
 				want: &memStore{
 					id: "test",
 					cache: map[string]*CacheEntry{
-						"one":   {key: "one", value: int(1), index: 0},
-						"two":   {key: "two", value: int(2), index: 1},
-						"three": {key: "three", value: int(3), index: 2},
+						"one":   {Key: "one", Value: int(1), index: 0},
+						"two":   {Key: "two", Value: int(2), index: 1},
+						"three": {Key: "three", Value: int(3), index: 2},
 					},
 					expiries: expiryHeap{
-						{key: "one", value: int(1), index: 0},
-						{key: "two", value: int(2), index: 1},
-						{key: "three", value: int(3), index: 2},
+						{Key: "one", Value: int(1), index: 0},
+						{Key: "two", Value: int(2), index: 1},
+						{Key: "three", Value: int(3), index: 2},
 					},
 					refs:   2,
+					dirty:  true,
 					ttl:    time.Second,
 					cap:    1000,
 					effort: 10,
@@ -225,16 +227,17 @@ var memStoreTests = []struct {
 				want: &memStore{
 					id: "test",
 					cache: map[string]*CacheEntry{
-						"one":   {key: "one", value: int(1), index: 0},
-						"two":   {key: "two", value: int(2), index: 1},
-						"three": {key: "three", value: int(3), index: 2},
+						"one":   {Key: "one", Value: int(1), index: 0},
+						"two":   {Key: "two", Value: int(2), index: 1},
+						"three": {Key: "three", Value: int(3), index: 2},
 					},
 					expiries: expiryHeap{
-						{key: "one", value: int(1), index: 0},
-						{key: "two", value: int(2), index: 1},
-						{key: "three", value: int(3), index: 2},
+						{Key: "one", Value: int(1), index: 0},
+						{Key: "two", Value: int(2), index: 1},
+						{Key: "three", Value: int(3), index: 2},
 					},
 					refs:   2,
+					dirty:  true,
 					ttl:    time.Second,
 					cap:    1000,
 					effort: 10,
@@ -247,14 +250,15 @@ var memStoreTests = []struct {
 				want: &memStore{
 					id: "test",
 					cache: map[string]*CacheEntry{
-						"one":   {key: "one", value: int(1), index: 0},
-						"three": {key: "three", value: int(3), index: 1},
+						"one":   {Key: "one", Value: int(1), index: 0},
+						"three": {Key: "three", Value: int(3), index: 1},
 					},
 					expiries: expiryHeap{
-						{key: "one", value: int(1), index: 0},
-						{key: "three", value: int(3), index: 1},
+						{Key: "one", Value: int(1), index: 0},
+						{Key: "three", Value: int(3), index: 1},
 					},
 					refs:   2,
+					dirty:  true,
 					ttl:    time.Second,
 					cap:    1000,
 					effort: 10,
@@ -271,14 +275,15 @@ var memStoreTests = []struct {
 				want: &memStore{
 					id: "test",
 					cache: map[string]*CacheEntry{
-						"one":   {key: "one", value: int(1), index: 0},
-						"three": {key: "three", value: int(3), index: 1},
+						"one":   {Key: "one", Value: int(1), index: 0},
+						"three": {Key: "three", Value: int(3), index: 1},
 					},
 					expiries: expiryHeap{
-						{key: "one", value: int(1), index: 0},
-						{key: "three", value: int(3), index: 1},
+						{Key: "one", Value: int(1), index: 0},
+						{Key: "three", Value: int(3), index: 1},
 					},
 					refs:   2,
+					dirty:  true,
 					ttl:    time.Second,
 					cap:    1000,
 					effort: 10,
@@ -295,14 +300,15 @@ var memStoreTests = []struct {
 				want: &memStore{
 					id: "test",
 					cache: map[string]*CacheEntry{
-						"one":   {key: "one", value: int(1), index: 0},
-						"three": {key: "three", value: int(3), index: 1},
+						"one":   {Key: "one", Value: int(1), index: 0},
+						"three": {Key: "three", Value: int(3), index: 1},
 					},
 					expiries: expiryHeap{
-						{key: "one", value: int(1), index: 0},
-						{key: "three", value: int(3), index: 1},
+						{Key: "one", Value: int(1), index: 0},
+						{Key: "three", Value: int(3), index: 1},
 					},
 					refs:   1,
+					dirty:  true,
 					ttl:    time.Second,
 					cap:    1000,
 					effort: 10,
@@ -321,6 +327,7 @@ var memStoreTests = []struct {
 					cache:    nil, // assistively nil-ed.
 					expiries: nil, // assistively nil-ed.
 					refs:     0,
+					dirty:    true,
 					ttl:      time.Second,
 					cap:      1000,
 					effort:   10,
@@ -332,14 +339,14 @@ var memStoreTests = []struct {
 
 func TestMemStore(t *testing.T) {
 	allow := cmp.AllowUnexported(memStore{}, CacheEntry{})
-	ignoreInMemStore := cmpopts.IgnoreFields(memStore{}, "mu", "typ")
-	ignoreInCacheEntry := cmpopts.IgnoreFields(CacheEntry{}, "expires")
+	ignoreInMemStore := cmpopts.IgnoreFields(memStore{}, "mu")
+	ignoreInCacheEntry := cmpopts.IgnoreFields(CacheEntry{}, "Expires")
 
 	for _, test := range memStoreTests {
 		t.Run(test.name, func(t *testing.T) {
 			// Construct the store and put in into the stores map as
 			// we would if we were calling Run.
-			store := newMemStore(test.cfg, test.cfg.Store.Memory.ID, "memory")
+			store := newMemStore(test.cfg, test.cfg.Store.Memory.ID)
 			store.add(test.cfg)
 			memStores.add(store)
 
@@ -361,14 +368,14 @@ func TestMemStore(t *testing.T) {
 	}
 }
 
-// add adds the store to the set, it is used only for testing.
+// add adds the store to the set. It is used only for testing.
 func (s *memStoreSet) add(store *memStore) {
 	s.mu.Lock()
 	s.stores[store.id] = store
 	s.mu.Unlock()
 }
 
-// has returns whether the store exists in the set, it is used only for testing.
+// has returns whether the store exists in the set. It is used only for testing.
 func (s *memStoreSet) has(id string) bool {
 	s.mu.Lock()
 	_, ok := s.stores[id]
