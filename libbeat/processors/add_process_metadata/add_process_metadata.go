@@ -78,7 +78,7 @@ type subProcMetadata struct {
 }
 
 type processMetadata struct {
-	name, title, exe, username, userid                 string
+	name, title, exe, username, userid, groupid        string
 	args                                               []string
 	env                                                map[string]string
 	startTime                                          time.Time
@@ -259,6 +259,12 @@ func (p *addProcessMetadata) enrich(event *beat.Event, pidField string) (result 
 		}
 	}
 
+	if p.config.PrepareSessionViewEvents {
+		if err = prepareEventForSessionView(event, metaPtr); err != nil {
+			p.log.Debugf("failed to prepare event for session view: %v", err)
+		}
+	}
+
 	if len(meta) == 0 {
 		// no metadata nor container id
 		return nil, ErrNoProcess
@@ -320,6 +326,37 @@ func (p *addProcessMetadata) String() string {
 		p.config.OverwriteKeys, p.config.RestrictedFields, p.config.HostPath, p.config.CgroupPrefixes)
 }
 
+// prepareEventForSessionView mutates the process event into a format expected by Session Viewer
+//
+// Currently only process events from auditd are supported.
+// In the future, events from other integrations could be supported
+func prepareEventForSessionView(event *beat.Event, meta *processMetadata) error  {
+	kind, _:= event.Fields.GetValue("event.kind")
+	isAuditdEvent, _ := event.Fields.HasKey("auditd")
+	if kind == "event" && isAuditdEvent {
+		// Mutate audit process events to the format expected
+
+		// process start
+		syscall, err := event.Fields.GetValue("auditd.data.syscall")
+		if err != nil {
+			return fmt.Errorf("auditd event doesn't appear to have syscall data: %s", err)
+		}
+		if syscall == "execve" {
+			event.Fields.Put("event.action", []string{"exec", "fork"})
+			event.Fields.Put("event.type", []string{"start"} )
+		}
+
+		//process end
+		if syscall == "exit_group" {
+			event.Fields.Put("event.action", []string{"end"})
+			event.Fields.Put("event.type", []string{"end"})
+			// TODO: This is not the true end time, but end time isn't included with audit data, so where can we get it...
+			event.Fields.Put("process.end", time.Now())
+		}
+	}
+	return nil
+}
+
 func (p *processMetadata) toMap() mapstr.M {
 	// Don't trust the new fields, many aren't correct
 	process := mapstr.M{
@@ -329,6 +366,16 @@ func (p *processMetadata) toMap() mapstr.M {
 		"args":       p.args,
 		"env":        p.env,
 		"pid":        p.pid,
+		"entity_id": calculate_entity_id(p.pid, p.startTime),
+		"start":     p.startTime,
+		"user": mapstr.M {
+			"id": p.userid,
+		},
+		"group": mapstr.M {
+			"id": p.groupid,
+		},
+		//TODO: Is this the correct definition of interactive?
+		"interactive": (p.tty >> 8) != 0,
 		"parent": mapstr.M{
 			"args":              p.parent.args,
 			"entity_id":         calculate_entity_id(p.parent.pid, p.parent.startTime),
@@ -341,8 +388,6 @@ func (p *processMetadata) toMap() mapstr.M {
 			},
 			"start": p.parent.startTime,
 		},
-		"entity_id": calculate_entity_id(p.pid, p.startTime),
-		"start":     p.startTime,
 		"session_leader": mapstr.M{
 			"args":              "",
 			"entity_id":         calculate_entity_id(p.session_leader.pid, p.session_leader.startTime),
@@ -388,8 +433,6 @@ func (p *processMetadata) toMap() mapstr.M {
 				"minor": p.tty & 0xff,
 			},
 		},
-		//TODO: Is this the correct definition of interactive?
-		"interactive": (p.tty >> 8) != 0,
 	}
 	if p.username != "" || p.userid != "" {
 		user := mapstr.M{}

@@ -60,6 +60,8 @@ type config struct {
 	// CgroupCacheExpireTime is the length of time before cgroup cache elements expire in seconds,
 	// set to 0 to disable the cgroup cache
 	CgroupCacheExpireTime time.Duration `config:"cgroup_cache_expire_time"`
+
+	PrepareSessionViewEvents bool `config:"prepare_session_view_events"`
 }
 
 func (c *config) Validate() error {
@@ -81,6 +83,9 @@ var defaultFields = mapstr.M{
 		"user": mapstr.M{
 			"id": nil,
 		},
+		"group":mapstr.M{
+			"id": nil,
+		},
 		"parent": mapstr.M{
 			"args":              nil,
 			"entity_id":         nil,
@@ -92,7 +97,8 @@ var defaultFields = mapstr.M{
 				"id": nil,
 			},
 		},
-		"start_time": nil,
+		"start": nil,
+		"end": nil,
 		"owner": mapstr.M{
 			"name": nil,
 			"id":   nil,

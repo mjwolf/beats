@@ -546,10 +546,8 @@ func buildMetricbeatEvent(msgs []*auparse.AuditMessage, config Config) mb.Event 
 		RootFields: mapstr.M{
 			"event": mapstr.M{
 				"category": auditEvent.Category.String(),
-				//"action":   auditEvent.Summary.Action,
-				// "Simulate actions
-				"action":  []string{"exec", "fork"},
-				"outcome": eventOutcome,
+				"action":   auditEvent.Summary.Action,
+				"outcome":  eventOutcome,
 			},
 		},
 		ModuleFields: mapstr.M{
@@ -680,8 +678,7 @@ func normalizeEventFields(event *aucoalesce.Event, m mapstr.M) {
 		_, _ = m.Put("event.category", event.ECS.Event.Category)
 	}
 	if len(event.ECS.Event.Type) > 0 {
-		// Simulate type
-		_, _ = m.Put("event.type", []string{"start"}) //event.ECS.Event.Type)
+		_, _ = m.Put("event.type", event.ECS.Event.Type)
 	}
 	if event.ECS.Event.Outcome != "" {
 		_, _ = m.Put("event.outcome", event.ECS.Event.Outcome)
