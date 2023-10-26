@@ -411,6 +411,8 @@ replace (
 	github.com/tonistiigi/fifo => github.com/containerd/fifo v0.0.0-20190816180239-bda0ff6ed73c
 	k8s.io/kubernetes v1.13.0 => k8s.io/kubernetes v1.24.15
 
+	github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/pkg/processdb => /home/mwolf/git/beats/libbeat/processors/add_session_metadata/pkg/processdb
+
 )
 
 // Exclude this version because the version has an invalid checksum.
