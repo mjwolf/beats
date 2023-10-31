@@ -55,6 +55,7 @@ type addSessionMetadata struct {
 	logger *logp.Logger
 	db processdb.DB
 	provider provider.Provider
+	watcher Watcher
 }
 
 func New(cfg *config.C) (beat.Processor, error) {
@@ -69,17 +70,26 @@ func New(cfg *config.C) (beat.Processor, error) {
 	ctx := context.TODO()
 	switch c.Backend {
 		case "ebpf":
-			prvdr, err := ebpf.NewProvider(ctx, *logger)
+			provider, err := ebpf.NewProvider(ctx, *logger)
 			if err != nil {
 				return nil, fmt.Errorf("failed to init ebpf provider: %w", err)
 			}
-		p := &addSessionMetadata{
-			config: c,
-			logger: logger,
-			db: processdb.NewSimpleDB(*logger),
-			provider: prvdr,
-		}
-		return p, nil
+			db := processdb.NewSimpleDB(*logger)
+			p := &addSessionMetadata{
+				config: c,
+				logger: logger,
+				db: db,
+				provider: provider,
+				watcher: NewWatcher(ctx, logger, db, provider),
+			}
+
+			if err := p.provider.Start(); err != nil {
+				return nil, fmt.Errorf("failed to start ebpf provider: %w", err)
+			}
+			if err := p.watcher.Start(); err != nil {
+				return nil, fmt.Errorf("failed to start watcher: %w", err)
+			}
+			return p, nil
 		default:
 			return nil, fmt.Errorf("unknown backend configuration")
 		}

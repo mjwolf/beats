@@ -45,8 +45,6 @@ int BPF_PROG(raw_tp__sched_process_fork,
 
     // Variable length fields
     vl_fields__init(&event->vl_fields);
-    struct varlen_field *field;
-    long size;
 
     // In a fork, processExecutable is the path to the executable of the running process
     struct file *exe_file = BPF_CORE_READ(parent, mm, exe_file);
@@ -158,8 +156,6 @@ int BPF_KPROBE(kprobe__taskstats_exit, const struct task_struct *task, int group
 
     // Variable length fields
     vl_fields__init(&event->vl_fields);
-    struct varlen_field *field;
-    long size;
 
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 
@@ -192,8 +188,6 @@ int tracepoint__syscalls_sys_exit_setsid(struct trace_event_raw_sys_exit *args)
 
     // Variable length fields
     vl_fields__init(&event->vl_fields);
-    struct varlen_field *field;
-    long size;
 
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);
 

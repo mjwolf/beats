@@ -31,8 +31,8 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/elastic/elastic-agent-libs/logp"
 
-	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/provider"
 	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/types"
+	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/provider"
 )
 
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc $BPF_CLANG -cflags $BPF_CFLAGS -target $BPF_TARGET bpf ./probes/amalgam.c -- -I./probes/headers -I./probes/$BPF_TARGET
@@ -60,7 +60,7 @@ func (s *svc) Started() bool {
 	return s.ready || s.failedState
 }
 
-func (s *svc) CreateEventChannel(bufferSize uint32) <-chan types.Event {
+func (s *svc) CreateEventChannel(bufferSize uint32) (<-chan types.Event) {
 	ch := make(chan types.Event, bufferSize)
 	s.eventChannels.Store((chan<- types.Event)(ch), nil)
 	return ch
@@ -136,7 +136,6 @@ func (s *svc) loadBpfProgs() error {
 		return fmt.Errorf("assign BPF specs: %v", err)
 	}
 
-
 	return nil
 }
 
@@ -154,7 +153,7 @@ func (s *svc) Start() error {
 
 	if err := s.loadBpfProgs(); err != nil {
 		s.failedState = true
-		msg := "load bpf progs (please ensure required Linux capabilities are set in k8s security context. BPF, PERFMON, and SYS_RESOURCE are mandatory)"
+		msg := "load bpf progs (please ensure required Linux capabilities are set. BPF, PERFMON, and SYS_RESOURCE are mandatory)"
 		s.logger.Errorf("%s: %v", msg, err)
 		return fmt.Errorf("%s: %v", msg, err)
 	}
