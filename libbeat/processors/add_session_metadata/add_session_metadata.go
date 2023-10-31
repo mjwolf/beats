@@ -83,12 +83,9 @@ func New(cfg *config.C) (beat.Processor, error) {
 				watcher: NewWatcher(ctx, logger, db, provider),
 			}
 
-			if err := p.provider.Start(); err != nil {
-				return nil, fmt.Errorf("failed to start ebpf provider: %w", err)
-			}
-			if err := p.watcher.Start(); err != nil {
-				return nil, fmt.Errorf("failed to start watcher: %w", err)
-			}
+			go p.provider.Start()
+			go p.watcher.Start()
+
 			return p, nil
 		default:
 			return nil, fmt.Errorf("unknown backend configuration")

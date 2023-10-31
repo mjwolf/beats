@@ -46,10 +46,6 @@ int BPF_PROG(raw_tp__sched_process_fork,
     // Variable length fields
     vl_fields__init(&event->vl_fields);
 
-    // In a fork, processExecutable is the path to the executable of the running process
-    struct file *exe_file = BPF_CORE_READ(parent, mm, exe_file);
-    struct path *exe_path = &exe_file->f_path;
-
 
 output:
     bpf_ringbuf_output(&ringbuf, event, EVENT_SIZE(event), 0);

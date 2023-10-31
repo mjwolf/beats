@@ -35,7 +35,20 @@ func (w *Watcher) eventLoop() {
 			//TODO: finish processing any events in channel
 			return
 		case event := <-w.ch:
-			w.logger.Errorf("got event in watcher! %v", event)
+			w.logger.Debugf("got event in watcher! %v", event)
+
+			switch event.Meta.Type {
+			case types.ProcessExec:
+				processExec, ok := event.Body.(types.ProcessExecEvent)
+				if !ok {
+					w.logger.Errorf("malformed process exec event")
+					continue
+				}
+				w.db.InsertExec(processExec)
+				w.logger.Errorf("inserted pid %v in db", processExec.Pids.Tgid)
+			default:
+				w.logger.Debugf("got unknown event type")
+			}
 		}
 	}
 }

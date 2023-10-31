@@ -273,22 +273,6 @@ func deserializeMeta(r *bytes.Reader, m *Meta) error {
 		return err
 	}
 
-	if err := binary.Read(r, endian.Native, &m.SelMatched); err != nil {
-		return err
-	}
-
-	if err := binary.Read(r, endian.Native, &m.Log); err != nil {
-		return err
-	}
-
-	if err := binary.Read(r, endian.Native, &m.Alert); err != nil {
-		return err
-	}
-
-	if err := binary.Read(r, endian.Native, &m.Block); err != nil {
-		return err
-	}
-
 	return nil
 }
 
