@@ -18,6 +18,7 @@
 package add_session_metadata
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -27,6 +28,8 @@ import (
 	"github.com/elastic/beats/v7/libbeat/beat"
 	"github.com/elastic/beats/v7/libbeat/processors"
 	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/pkg/processdb"
+	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/provider"
+	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/provider/ebpf"
 	jsprocessor "github.com/elastic/beats/v7/libbeat/processors/script/javascript/module/processor"
 	"github.com/elastic/elastic-agent-libs/config"
 	"github.com/elastic/elastic-agent-libs/logp"
@@ -34,6 +37,7 @@ import (
 
 const processorName = "add_session_metadata"
 const logName = "processor." + processorName
+const pidField = "process.pid" //TODO: add this to config file
 
 var (
 	reg *monitoring.Registry
@@ -50,6 +54,7 @@ type addSessionMetadata struct {
 	config Config
 	logger *logp.Logger
 	db processdb.DB
+	provider provider.Provider
 }
 
 func New(cfg *config.C) (beat.Processor, error) {
@@ -61,13 +66,23 @@ func New(cfg *config.C) (beat.Processor, error) {
 
 	logger := logp.NewLogger(logName)
 
-	p := &addSessionMetadata{
-		config: c,
-		logger: logger,
-		db: processdb.NewSimpleDB(*logger),
-	}
-
-	return p, nil
+	ctx := context.TODO()
+	switch c.Backend {
+		case "ebpf":
+			prvdr, err := ebpf.NewProvider(ctx, *logger)
+			if err != nil {
+				return nil, fmt.Errorf("failed to init ebpf provider: %w", err)
+			}
+		p := &addSessionMetadata{
+			config: c,
+			logger: logger,
+			db: processdb.NewSimpleDB(*logger),
+			provider: prvdr,
+		}
+		return p, nil
+		default:
+			return nil, fmt.Errorf("unknown backend configuration")
+		}
 }
 
 func (p *addSessionMetadata) Run(event *beat.Event) (*beat.Event, error) {
@@ -89,23 +104,24 @@ func (p *addSessionMetadata) String() string {
 	return fmt.Sprintf("%v=[]", processorName)
 }
 
-func pidToInt(value interface{}) (pid uint32, err error) {
+func pidToUInt32(value interface{}) (pid uint32, err error) {
 	switch v := value.(type) {
 	case string:
-		pid, err = strconv.Atoi(v)
+		nr, err := strconv.Atoi(v)
 		if err != nil {
 			return 0, fmt.Errorf("error converting string to integer: %w", err)
 		}
-	case int:
+		pid = uint32(nr)
+	case uint32:
 		pid = v
-	case int8, int16, int32, int64:
+	case int, int8, int16, int32, int64:
 		pid64 := reflect.ValueOf(v).Int()
-		if pid = int(pid64); int64(pid) != pid64 {
+		if pid = uint32(pid64); int64(pid) != pid64 {
 			return 0, fmt.Errorf("integer out of range: %d", pid64)
 		}
-	case uint, uintptr, uint8, uint16, uint32, uint64:
+	case uint, uintptr, uint8, uint16, uint64:
 		pidu64 := reflect.ValueOf(v).Uint()
-		if pid = int(pidu64); pid < 0 || uint64(pid) != pidu64 {
+		if pid = uint32(pidu64); uint64(pid) != pidu64 {
 			return 0, fmt.Errorf("integer out of range: %d", pidu64)
 		}
 	default:
@@ -115,12 +131,12 @@ func pidToInt(value interface{}) (pid uint32, err error) {
 }
 
 func (p *addSessionMetadata) enrich(event *beat.Event) (*beat.Event, error) {
-	pidIf, err := event.GetValue("process.pid")
+	pidIf, err := event.GetValue(pidField)
 	if err != nil {
 		return nil, err
 	}
 
-	pid, err := pidToInt(pidIf)
+	pid, err := pidToUInt32(pidIf)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse pid field '%s': %w", pidField, err)
 	}
