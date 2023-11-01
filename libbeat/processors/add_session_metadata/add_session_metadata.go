@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/elastic/elastic-agent-libs/mapstr"
 	"github.com/elastic/elastic-agent-libs/monitoring"
 
 	"github.com/elastic/beats/v7/libbeat/beat"
@@ -154,5 +155,11 @@ func (p *addSessionMetadata) enrich(event *beat.Event) (*beat.Event, error) {
 	}
 
 	p.logger.Debugf("got fullProcess for pid %v: %v", pid, fullProcess)
-	return event, nil
+
+	result := event.Clone()
+
+	processMap := fullProcess.ToMap()
+
+	mapstr.MergeFieldsDeep(result.Fields["process"].(mapstr.M), processMap, true)
+	return result, nil
 }
