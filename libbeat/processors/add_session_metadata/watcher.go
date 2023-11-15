@@ -11,18 +11,18 @@ import (
 )
 
 type Watcher struct {
-	ctx context.Context
-	db processdb.DB
-	ch <-chan types.Event
+	ctx    context.Context
+	db     processdb.DB
+	ch     <-chan types.Event
 	logger *logp.Logger
 }
 
-func NewWatcher(ctx context.Context, logger *logp.Logger, db processdb.DB, p provider.Provider) (Watcher) {
-	w := Watcher {
-		ctx: ctx,
+func NewWatcher(ctx context.Context, logger *logp.Logger, db processdb.DB, p provider.Provider) Watcher {
+	w := Watcher{
+		ctx:    ctx,
 		logger: logger,
-		db: db,
-		ch: p.CreateEventChannel(1024),
+		db:     db,
+		ch:     p.CreateEventChannel(1024),
 	}
 	return w
 }
@@ -32,7 +32,7 @@ func (w *Watcher) eventLoop() {
 	for {
 		select {
 		case <-w.ctx.Done():
-			//TODO: finish processing any events in channel
+			// TODO: finish processing any events in channel
 			return
 		case event := <-w.ch:
 			w.logger.Debugf("got event in watcher! %v", event)

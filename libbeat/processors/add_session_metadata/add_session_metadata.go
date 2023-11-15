@@ -22,6 +22,9 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/elastic/elastic-agent-libs/mapstr"
 	"github.com/elastic/elastic-agent-libs/monitoring"
@@ -36,13 +39,13 @@ import (
 	"github.com/elastic/elastic-agent-libs/logp"
 )
 
-const processorName = "add_session_metadata"
-const logName = "processor." + processorName
-const pidField = "process.pid" //TODO: add this to config file
-
-var (
-	reg *monitoring.Registry
+const (
+	processorName = "add_session_metadata"
+	logName       = "processor." + processorName
+	pidField      = "process.pid" // TODO: add this to config file
 )
+
+var reg *monitoring.Registry
 
 func init() {
 	processors.RegisterPlugin(processorName, New)
@@ -52,15 +55,14 @@ func init() {
 }
 
 type addSessionMetadata struct {
-	config Config
-	logger *logp.Logger
-	db processdb.DB
+	config   Config
+	logger   *logp.Logger
+	db       processdb.DB
 	provider provider.Provider
-	watcher Watcher
+	watcher  Watcher
 }
 
 func New(cfg *config.C) (beat.Processor, error) {
-
 	c := defaultConfig()
 	if err := cfg.Unpack(&c); err != nil {
 		return nil, fmt.Errorf("fail to unpack the %v configuration: %w", processorName, err)
@@ -70,27 +72,27 @@ func New(cfg *config.C) (beat.Processor, error) {
 
 	ctx := context.TODO()
 	switch c.Backend {
-		case "ebpf":
-			provider, err := ebpf.NewProvider(ctx, *logger)
-			if err != nil {
-				return nil, fmt.Errorf("failed to init ebpf provider: %w", err)
-			}
-			db := processdb.NewSimpleDB(*logger)
-			p := &addSessionMetadata{
-				config: c,
-				logger: logger,
-				db: db,
-				provider: provider,
-				watcher: NewWatcher(ctx, logger, db, provider),
-			}
-
-			go p.provider.Start()
-			go p.watcher.Start()
-
-			return p, nil
-		default:
-			return nil, fmt.Errorf("unknown backend configuration")
+	case "ebpf":
+		provider, err := ebpf.NewProvider(ctx, *logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to init ebpf provider: %w", err)
 		}
+		db := processdb.NewSimpleDB(*logger)
+		p := &addSessionMetadata{
+			config:   c,
+			logger:   logger,
+			db:       db,
+			provider: provider,
+			watcher:  NewWatcher(ctx, logger, db, provider),
+		}
+
+		go p.provider.Start()
+		go p.watcher.Start()
+
+		return p, nil
+	default:
+		return nil, fmt.Errorf("unknown backend configuration")
+	}
 }
 
 func (p *addSessionMetadata) Run(event *beat.Event) (*beat.Event, error) {
@@ -161,5 +163,40 @@ func (p *addSessionMetadata) enrich(event *beat.Event) (*beat.Event, error) {
 	processMap := fullProcess.ToMap()
 
 	mapstr.MergeFieldsDeep(result.Fields["process"].(mapstr.M), processMap, true)
+
+	// Mutate fields needed for session data
+	// TODO: This only works with Auditbeat, make it more generic
+	kind, err := result.Fields.GetValue("event.kind")
+	if err != nil {
+		return result, nil
+	}
+	isAuditdEvent, err := result.Fields.HasKey("auditd")
+	if err != nil {
+		return result, nil
+	}
+	if kind == "event" && isAuditdEvent {
+		// process start
+		syscall, err := result.Fields.GetValue("auditd.data.syscall")
+		if err != nil {
+			return result, nil
+		}
+		if syscall == "execve" {
+			result.Fields.Put("event.action", []string{"exec", "fork"})
+			result.Fields.Put("event.type", []string{"start"})
+		}
+
+		// process end
+		if syscall == "exit_group" {
+			result.Fields.Put("event.action", []string{"end"})
+			result.Fields.Put("event.type", []string{"end"})
+			// TODO: This is not the true end time, but end time isn't included with audit data, so where can we get it...
+			result.Fields.Put("process.end", time.Now())
+		}
+
+		result.Fields.Put("process.tty.major", "16")
+		result.Fields.Put("process.tty.minor", "1")
+
+		result.Fields.Put("event.id", uuid.NewString())
+	}
 	return result, nil
 }

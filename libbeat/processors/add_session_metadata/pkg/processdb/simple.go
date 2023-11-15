@@ -44,7 +44,6 @@ type Process struct {
 	PidsSsCgroupPath string
 }
 
-
 var (
 	// The contents of these two files are needed to calculate entity IDs.
 	// Fail fast on startup if we can't read them.

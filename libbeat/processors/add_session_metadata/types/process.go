@@ -341,110 +341,110 @@ type Process struct {
 	} `json:"entry_leader,omitempty"`
 }
 
-func (p *Process)ToMap() mapstr.M {
+func (p *Process) ToMap() mapstr.M {
 	// TODO: Doublecheck all these fields are correct, and add the rest...
 	process := mapstr.M{
-		"entity_id": p.EntityID,
-		"executable": p.Executable,
-		"name": p.Name,
-		"exit_code": p.ExitCode,
-		"interactive": p.Interactive,
+		"entity_id":         p.EntityID,
+		"executable":        p.Executable,
+		"name":              p.Name,
+		"exit_code":         p.ExitCode,
+		"interactive":       p.Interactive,
 		"working_directory": p.WorkingDirectory,
-		"user": mapstr.M {
-			"id": p.User.ID,
+		"user": mapstr.M{
+			"id":   p.User.ID,
 			"name": p.User.Name,
 		},
-		"group": mapstr.M {
-			"id": p.Group.ID,
+		"group": mapstr.M{
+			"id":   p.Group.ID,
 			"name": p.Group.Name,
 		},
-		"pid": p.PID,
+		"pid":  p.PID,
 		"vpid": p.Vpid,
 		"args": p.Args,
-		"thread": mapstr.M {
-			"capabilities": mapstr.M {
+		"thread": mapstr.M{
+			"capabilities": mapstr.M{
 				"permitted": p.Thread.Capabilities.Permitted,
 				"effective": p.Thread.Capabilities.Effective,
 			},
 		},
-		"parent": mapstr.M {
-			"entity_id": p.Parent.EntityID,
-			"executable": p.Parent.Executable,
-			"name": p.Parent.Name,
-			"interactive": p.Parent.Interactive,
+		"parent": mapstr.M{
+			"entity_id":         p.Parent.EntityID,
+			"executable":        p.Parent.Executable,
+			"name":              p.Parent.Name,
+			"interactive":       p.Parent.Interactive,
 			"working_directory": p.Parent.WorkingDirectory,
-			"user": mapstr.M {
-				"id": p.Parent.User.ID,
+			"user": mapstr.M{
+				"id":   p.Parent.User.ID,
 				"name": p.Parent.User.Name,
 			},
-			"group": mapstr.M {
-				"id": p.Parent.Group.ID,
+			"group": mapstr.M{
+				"id":   p.Parent.Group.ID,
 				"name": p.Parent.Group.Name,
 			},
-			"pid": p.Parent.PID,
+			"pid":  p.Parent.PID,
 			"args": p.Parent.Args,
-			"thread": mapstr.M {
-				"capabilities": mapstr.M {
+			"thread": mapstr.M{
+				"capabilities": mapstr.M{
 					"permitted": p.Parent.Thread.Capabilities.Permitted,
 					"effective": p.Parent.Thread.Capabilities.Effective,
 				},
 			},
 		},
-		"group_leader": mapstr.M {
-			"entity_id": p.GroupLeader.EntityID,
-			"executable": p.GroupLeader.Executable,
-			"name": p.GroupLeader.Name,
-			"interactive": p.GroupLeader.Interactive,
+		"group_leader": mapstr.M{
+			"entity_id":         p.GroupLeader.EntityID,
+			"executable":        p.GroupLeader.Executable,
+			"name":              p.GroupLeader.Name,
+			"interactive":       p.GroupLeader.Interactive,
 			"working_directory": p.GroupLeader.WorkingDirectory,
-			"user": mapstr.M {
-				"id": p.GroupLeader.User.ID,
+			"user": mapstr.M{
+				"id":   p.GroupLeader.User.ID,
 				"name": p.GroupLeader.User.Name,
 			},
-			"group": mapstr.M {
-				"id": p.GroupLeader.Group.ID,
+			"group": mapstr.M{
+				"id":   p.GroupLeader.Group.ID,
 				"name": p.GroupLeader.Group.Name,
 			},
-			"pid": p.GroupLeader.PID,
-			"args": p.GroupLeader.Args,
+			"pid":             p.GroupLeader.PID,
+			"args":            p.GroupLeader.Args,
 			"same_as_process": p.GroupLeader.SameAsProcess,
 		},
-		"session_leader": mapstr.M {
-			"entity_id": p.SessionLeader.EntityID,
-			"executable": p.SessionLeader.Executable,
-			"name": p.SessionLeader.Name,
-			"interactive": p.SessionLeader.Interactive,
+		"session_leader": mapstr.M{
+			"entity_id":         p.SessionLeader.EntityID,
+			"executable":        p.SessionLeader.Executable,
+			"name":              p.SessionLeader.Name,
+			"interactive":       p.SessionLeader.Interactive,
 			"working_directory": p.SessionLeader.WorkingDirectory,
-			"user": mapstr.M {
-				"id": p.SessionLeader.User.ID,
+			"user": mapstr.M{
+				"id":   p.SessionLeader.User.ID,
 				"name": p.SessionLeader.User.Name,
 			},
-			"group": mapstr.M {
-				"id": p.SessionLeader.Group.ID,
+			"group": mapstr.M{
+				"id":   p.SessionLeader.Group.ID,
 				"name": p.SessionLeader.Group.Name,
 			},
-			"pid": p.SessionLeader.PID,
-			"args": p.SessionLeader.Args,
+			"pid":             p.SessionLeader.PID,
+			"args":            p.SessionLeader.Args,
 			"same_as_process": p.SessionLeader.SameAsProcess,
 		},
-		"entry_leader": mapstr.M {
-			"entity_id": p.EntryLeader.EntityID,
-			"executable": p.EntryLeader.Executable,
-			"name": p.EntryLeader.Name,
-			"interactive": p.EntryLeader.Interactive,
+		"entry_leader": mapstr.M{
+			"entity_id":         p.EntryLeader.EntityID,
+			"executable":        p.EntryLeader.Executable,
+			"name":              p.EntryLeader.Name,
+			"interactive":       p.EntryLeader.Interactive,
 			"working_directory": p.EntryLeader.WorkingDirectory,
-			"entry_meta": mapstr.M {
+			"entry_meta": mapstr.M{
 				"type": p.EntryLeader.EntryMeta.Type,
 			},
-			"user": mapstr.M {
-				"id": p.EntryLeader.User.ID,
+			"user": mapstr.M{
+				"id":   p.EntryLeader.User.ID,
 				"name": p.EntryLeader.User.Name,
 			},
-			"group": mapstr.M {
-				"id": p.EntryLeader.Group.ID,
+			"group": mapstr.M{
+				"id":   p.EntryLeader.Group.ID,
 				"name": p.EntryLeader.Group.Name,
 			},
-			"pid": p.EntryLeader.PID,
-			"args": p.EntryLeader.Args,
+			"pid":             p.EntryLeader.PID,
+			"args":            p.EntryLeader.Args,
 			"same_as_process": p.EntryLeader.SameAsProcess,
 		},
 	}

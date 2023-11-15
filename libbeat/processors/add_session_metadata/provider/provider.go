@@ -7,5 +7,5 @@ import (
 type Provider interface {
 	Start() error
 	Stop() error
-	CreateEventChannel(bufferSize uint32) (<-chan types.Event)
+	CreateEventChannel(bufferSize uint32) <-chan types.Event
 }
