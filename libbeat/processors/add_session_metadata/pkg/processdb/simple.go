@@ -23,11 +23,13 @@ import (
 	"math/bits"
 	"os"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/pkg/procfs"
 	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/pkg/timeutils"
 	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/types"
 	"github.com/elastic/elastic-agent-libs/logp"
@@ -201,14 +203,16 @@ type SimpleDB struct {
 	processes                map[uint32]Process
 	entryLeaders             map[uint32]EntryType
 	entryLeaderRelationships map[uint32]uint32
+	procfs                   procfs.Reader
 }
 
-func NewSimpleDB(logger logp.Logger) *SimpleDB {
+func NewSimpleDB(reader procfs.Reader, logger logp.Logger) *SimpleDB {
 	ret := &SimpleDB{
 		logger:                   logp.NewLogger("processdb"),
 		processes:                make(map[uint32]Process),
 		entryLeaders:             make(map[uint32]EntryType),
 		entryLeaderRelationships: make(map[uint32]uint32),
+		procfs:                   reader,
 	}
 
 	return ret
@@ -637,4 +641,42 @@ func (db *SimpleDB) GetCgroupPath(pid uint32) (string, error) {
 		return proc.PidsSsCgroupPath, nil
 	}
 	return "", errors.New("process not found")
+}
+
+func (db *SimpleDB) ScrapeProcfs() []uint32 {
+	db.Lock()
+	defer db.Unlock()
+
+	procs, err := db.procfs.GetAllProcesses()
+	if err != nil {
+		db.logger.Errorf("failed to get processes from procfs: %v", err)
+		return make([]uint32, 0)
+	}
+
+	// sorting the slice to make sure that parents, session leaders, group
+	// leaders come first in the queue
+	sort.Slice(procs, func(i, j int) bool {
+		return procs[i].Pids.Tgid == procs[j].Pids.Ppid ||
+			procs[i].Pids.Tgid == procs[j].Pids.Sid ||
+			procs[i].Pids.Tgid == procs[j].Pids.Pgid
+	})
+
+	pids := make([]uint32, 0)
+	for _, procInfo := range procs {
+		process := Process{
+			Pids:             pidInfoFromProto(procInfo.Pids),
+			Creds:            credInfoFromProto(procInfo.Creds),
+			CTty:             ttyDevFromProto(procInfo.CTty),
+			Argv:             procInfo.Argv,
+			Cwd:              procInfo.Cwd,
+			Env:              procInfo.Env,
+			Filename:         procInfo.Filename,
+			PidsSsCgroupPath: procInfo.CGroupPath,
+		}
+
+		db.insertProcess(process)
+		pids = append(pids, process.Pids.Tgid)
+	}
+
+	return pids
 }

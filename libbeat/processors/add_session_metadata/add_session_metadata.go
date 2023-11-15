@@ -32,6 +32,7 @@ import (
 	"github.com/elastic/beats/v7/libbeat/beat"
 	"github.com/elastic/beats/v7/libbeat/processors"
 	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/pkg/processdb"
+	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/pkg/procfs"
 	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/provider"
 	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/provider/ebpf"
 	jsprocessor "github.com/elastic/beats/v7/libbeat/processors/script/javascript/module/processor"
@@ -77,7 +78,8 @@ func New(cfg *config.C) (beat.Processor, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to init ebpf provider: %w", err)
 		}
-		db := processdb.NewSimpleDB(*logger)
+		reader := procfs.NewProcfsReader(*logger)
+		db := processdb.NewSimpleDB(reader, *logger)
 		p := &addSessionMetadata{
 			config:   c,
 			logger:   logger,
@@ -88,6 +90,9 @@ func New(cfg *config.C) (beat.Processor, error) {
 
 		go p.provider.Start()
 		go p.watcher.Start()
+
+		backfilledPIDs := db.ScrapeProcfs()
+		logger.Debugf("backfilled %d processes", len(backfilledPIDs))
 
 		return p, nil
 	default:
@@ -192,9 +197,6 @@ func (p *addSessionMetadata) enrich(event *beat.Event) (*beat.Event, error) {
 			// TODO: This is not the true end time, but end time isn't included with audit data, so where can we get it...
 			result.Fields.Put("process.end", time.Now())
 		}
-
-		result.Fields.Put("process.tty.major", "16")
-		result.Fields.Put("process.tty.minor", "1")
 
 		result.Fields.Put("event.id", uuid.NewString())
 	}

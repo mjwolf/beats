@@ -449,8 +449,21 @@ func (p *Process) ToMap() mapstr.M {
 		},
 	}
 
+	// nil timestamps will cause a panic within the publisher, only add the mapping if it exists
 	if p.Start != nil {
 		process.Put("start", p.Start)
+	}
+	if p.Parent.Start != nil {
+		process.Put("parent.start", p.Parent.Start)
+	}
+	if p.GroupLeader.Start != nil {
+		process.Put("group_leader.start", p.GroupLeader.Start)
+	}
+	if p.SessionLeader.Start != nil {
+		process.Put("session_leader.start", p.SessionLeader.Start)
+	}
+	if p.EntryLeader.Start != nil {
+		process.Put("entry_leader.start", p.EntryLeader.Start)
 	}
 
 	return process
