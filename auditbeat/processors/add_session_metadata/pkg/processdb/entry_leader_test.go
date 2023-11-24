@@ -21,7 +21,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/elastic/beats/libbeat/processors/add_session_metadata/types"
+	"github.com/elastic/beats/v7/auditbeat/processors/add_session_metadata/types"
 	"github.com/elastic/elastic-agent-libs/logp"
 	"github.com/stretchr/testify/require"
 )
