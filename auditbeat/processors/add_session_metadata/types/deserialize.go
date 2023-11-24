@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/pkg/endian"
+	"github.com/elastic/beats/v7/auditbeat/processors/add_session_metadata/pkg/endian"
 	"github.com/elastic/elastic-agent-libs/logp"
 )
 

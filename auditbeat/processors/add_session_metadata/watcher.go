@@ -5,9 +5,9 @@ import (
 
 	"github.com/elastic/elastic-agent-libs/logp"
 
-	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/pkg/processdb"
-	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/provider"
-	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/types"
+	"github.com/elastic/beats/v7/auditbeat/processors/add_session_metadata/pkg/processdb"
+	"github.com/elastic/beats/v7/auditbeat/processors/add_session_metadata/provider"
+	"github.com/elastic/beats/v7/auditbeat/processors/add_session_metadata/types"
 )
 
 type Watcher struct {

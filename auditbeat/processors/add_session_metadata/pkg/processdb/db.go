@@ -20,7 +20,7 @@ package processdb
 import (
 	"strings"
 
-	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/types"
+	"github.com/elastic/beats/v7/auditbeat/processors/add_session_metadata/types"
 )
 
 type DB interface {

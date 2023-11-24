@@ -31,8 +31,8 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/elastic/elastic-agent-libs/logp"
 
-	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/provider"
-	"github.com/elastic/beats/v7/libbeat/processors/add_session_metadata/types"
+	"github.com/elastic/beats/v7/auditbeat/processors/add_session_metadata/provider"
+	"github.com/elastic/beats/v7/auditbeat/processors/add_session_metadata/types"
 )
 
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc $BPF_CLANG -cflags $BPF_CFLAGS -target $BPF_TARGET bpf ./probes/amalgam.c -- -I./probes/headers -I./probes/$BPF_TARGET
