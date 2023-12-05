@@ -116,8 +116,12 @@ class Test(BaseTest):
             if line == "PASS\n":
                 break
             k, v = line.strip().split()
-            assert k in fields, "Unexpected field '{0}'".format(k)
-            assert not fields[k], "Field '{0}' repeated".format(k)
+            # 'backlog_wait_time_actual' is a valid value in some systems,
+            # so don't assert if it's present
+            # TODO: Use a better way to validate expected list in various systems
+            if not k == 'backlog_wait_time_actual':
+                assert k in fields, "Unexpected field '{0}'".format(k)
+                assert not fields[k], "Field '{0}' repeated".format(k)
             n = int(v, 0)
             assert n >= 0, "Field '{0}' has negative value {1}".format(k, v)
             fields[k] = True
