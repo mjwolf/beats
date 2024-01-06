@@ -7,6 +7,7 @@ package processdb
 import (
 	"testing"
 
+	"github.com/elastic/beats/v7/x-pack/auditbeat/processors/add_session_metadata/pkg/procfs"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/elastic/elastic-agent-libs/logp"
@@ -15,10 +16,12 @@ import (
 )
 
 var logger = logp.NewLogger("processdb")
+var reader = procfs.NewMockReader()
 
 // glue function to fit the return type required by these tests
-func newSimpleDBIntf() DB {
-	ret := NewSimpleDB(logger)
+func newSimpleDBIntf(reader procfs.Reader) DB {
+	ret := NewSimpleDB(reader, *logger)
+	_ = ret.ScrapeProcfs()
 	return ret
 }
 

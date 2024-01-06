@@ -85,7 +85,7 @@ func New(cfg *config.C) (beat.Processor, error) {
 		reader := procfs.NewProcfsReader(*logger)
 		db := processdb.NewSimpleDB(reader, *logger)
 
-		p, err := procfs_provider.NewProvider(ctx, *logger, db, c.PidField)
+		p, err := procfs_provider.NewProvider(ctx, *logger, db, reader, c.PidField)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create procfs provider: %w", err)
 		}

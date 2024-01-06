@@ -10,12 +10,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/elastic/beats/v7/x-pack/auditbeat/processors/add_session_metadata/pkg/procfs"
 	"github.com/elastic/beats/v7/x-pack/auditbeat/processors/add_session_metadata/types"
-	"github.com/elastic/elastic-agent-libs/logp"
+	// "github.com/elastic/elastic-agent-libs/logp"
 )
 
 type (
-	createDBFn func(logp.Logger) DB
+	createDBFn func(procfs.Reader) DB
 	testFn     func(*testing.T)
 )
 
@@ -181,8 +182,8 @@ func populateProcfsWithInit(reader *procfs.MockReader) {
 
 func testSingleProcessSessionLeaderEntryTypeTerminal(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		db := createDB(reader)
 
 		pid := uint32(1234)
 		procPath := "/bin/noproc"
@@ -206,8 +207,8 @@ func testSingleProcessSessionLeaderEntryTypeTerminal(createDB createDBFn) testFn
 
 func testSingleProcessSessionLeaderLoginProcess(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		db := createDB(reader)
 
 		pid := uint32(1234)
 		loginPath := "/bin/login"
@@ -235,8 +236,8 @@ func testSingleProcessSessionLeaderLoginProcess(createDB createDBFn) testFn {
 
 func testSingleProcessSessionLeaderChildOfInit(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		db := createDB(reader)
 
 		pid := uint32(100)
 		rsyslogdPath := "/bin/rsyslogd"
@@ -265,8 +266,8 @@ func testSingleProcessSessionLeaderChildOfInit(createDB createDBFn) testFn {
 
 func testSingleProcessSessionLeaderChildOfSsmSessionWorker(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		db := createDB(reader)
 
 		ssmPid := uint32(999)
 		bashPid := uint32(1000)
@@ -301,8 +302,8 @@ func testSingleProcessSessionLeaderChildOfSsmSessionWorker(createDB createDBFn) 
 
 func testSingleProcessSessionLeaderChildOfSshd(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		db := createDB(reader)
 
 		sshdPid := uint32(999)
 		bashPid := uint32(1000)
@@ -336,8 +337,8 @@ func testSingleProcessSessionLeaderChildOfSshd(createDB createDBFn) testFn {
 
 func testSingleProcessSessionLeaderChildOfContainerdShim(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		db := createDB(reader)
 
 		containerdShimPid := uint32(999)
 		bashPid := uint32(1000)
@@ -371,8 +372,8 @@ func testSingleProcessSessionLeaderChildOfContainerdShim(createDB createDBFn) te
 
 func testSingleProcessSessionLeaderChildOfRunc(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		db := createDB(reader)
 
 		runcPid := uint32(999)
 		bashPid := uint32(1000)
@@ -407,8 +408,8 @@ func testSingleProcessSessionLeaderChildOfRunc(createDB createDBFn) testFn {
 
 func testSingleProcessEmptyProcess(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		db := createDB(reader)
 
 		// No information in proc at all, entry type should be "unknown"
 		// and entry leader pid should be unset (since pid is not set)
@@ -440,8 +441,8 @@ func testSingleProcessEmptyProcess(createDB createDBFn) testFn {
 // EntryLeaderEntryMetaType
 func testSingleProcessOverwriteOldEntryLeader(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		db := createDB(reader)
 
 		ssmPid := uint32(999)
 		bashPid := uint32(1000)
@@ -511,9 +512,9 @@ func testSingleProcessOverwriteOldEntryLeader(createDB createDBFn) testFn {
 // thus something we should handle.
 func testInitSshdBashLs(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		populateProcfsWithInit(procfs)
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		populateProcfsWithInit(reader)
+		db := createDB(reader)
 
 		sshdPid := uint32(100)
 		bashPid := uint32(1000)
@@ -594,9 +595,9 @@ func testInitSshdBashLs(createDB createDBFn) testFn {
 // pid of the topmost sshd.
 func testInitSshdSshdBashLs(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		populateProcfsWithInit(procfs)
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		populateProcfsWithInit(reader)
+		db := createDB(reader)
 
 		sshd0Pid := uint32(100)
 		sshd1Pid := uint32(101)
@@ -686,9 +687,9 @@ func testInitSshdSshdBashLs(createDB createDBFn) testFn {
 //	                        \___ ls  (1001, 1000, "sshd", 1000)
 func testInitSshdSshdSshdBashLs(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		populateProcfsWithInit(procfs)
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		populateProcfsWithInit(reader)
+		db := createDB(reader)
 
 		sshd0Pid := uint32(100)
 		sshd1Pid := uint32(101)
@@ -795,9 +796,9 @@ func testInitSshdSshdSshdBashLs(createDB createDBFn) testFn {
 // executing the containerized process.
 func testInitContainerdContainerdShim(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		populateProcfsWithInit(procfs)
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		populateProcfsWithInit(reader)
+		db := createDB(reader)
 
 		containerdPid := uint32(100)
 		containerdShimPid := uint32(1000)
@@ -848,9 +849,9 @@ func testInitContainerdContainerdShim(createDB createDBFn) testFn {
 //	init.
 func testInitContainerdShimBashContainerdShimIsReparentedToInit(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		populateProcfsWithInit(procfs)
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		populateProcfsWithInit(reader)
+		db := createDB(reader)
 
 		containerdPid := uint32(100)
 		containerdShimPid := uint32(1000)
@@ -917,9 +918,9 @@ func testInitContainerdShimBashContainerdShimIsReparentedToInit(createDB createD
 // open the pod sandbox while other containers start and stop
 func testInitContainerdShimPauseContainerdShimIsReparentedToInit(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		populateProcfsWithInit(procfs)
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		populateProcfsWithInit(reader)
+		db := createDB(reader)
 
 		containerdPid := uint32(100)
 		containerdShimPid := uint32(1000)
@@ -989,9 +990,9 @@ func testInitContainerdShimPauseContainerdShimIsReparentedToInit(createDB create
 // leader.
 func testInitSshdBashLsAndGrepGrepOnlyHasGroupLeader(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		populateProcfsWithInit(procfs)
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		populateProcfsWithInit(reader)
+		db := createDB(reader)
 
 		sshdPid := uint32(100)
 		bashPid := uint32(1000)
@@ -1076,9 +1077,9 @@ func testInitSshdBashLsAndGrepGrepOnlyHasGroupLeader(createDB createDBFn) testFn
 // fallback to grabbing entry leader data from sshd, the session leader.
 func testInitSshdBashLsAndGrepGrepOnlyHasSessionLeader(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		populateProcfsWithInit(procfs)
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		populateProcfsWithInit(reader)
+		db := createDB(reader)
 
 		sshdPid := uint32(100)
 		bashPid := uint32(1000)
@@ -1159,8 +1160,8 @@ func testInitSshdBashLsAndGrepGrepOnlyHasSessionLeader(createDB createDBFn) test
 // entry meta type of "unknown" and making it an entry leader.
 func testGrepInIsolation(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		db := createDB(reader)
 
 		grepPid := uint32(1001)
 
@@ -1193,8 +1194,8 @@ func testGrepInIsolation(createDB createDBFn) testFn {
 // Kernel threads should never have an entry meta type or entry leader set.
 func testKernelThreads(createDB createDBFn) testFn {
 	return func(t *testing.T) {
-		procfs := procfs.NewMockReader()
-		db := createDB(procfs)
+		reader := procfs.NewMockReader()
+		db := createDB(reader)
 
 		kthreaddPid := uint32(2)
 		rcuGpPid := uint32(3)
