@@ -50,7 +50,8 @@ func (s *svc) Stop() error {
 	return nil
 }
 
-func (s *svc) Update(ev *beat.Event) error {
+// UpdateDB will update the process DB with process info from procfs or the event itself
+func (s *svc) UpdateDB(ev *beat.Event) error {
 	pi, err := ev.Fields.GetValue(s.pidField)
 	if err != nil {
 		return fmt.Errorf("event not supported, no pid")
@@ -69,13 +70,9 @@ func (s *svc) Update(ev *beat.Event) error {
 	case "execveat":
 		fallthrough
 	case "execve":
-		pe := types.ProcessExecEvent{
-			Pids: types.PidInfo{},
-			Creds: types.CredInfo{},
-			CTty: types.TtyDev{},
-		}
+		pe := types.ProcessExecEvent{}
 
-		proc_info, err := s.reader.GetProcess(pid)
+		proc_info, err := s.reader.GetProcess(uint32(pid))
 		if err == nil {
 			pe.Pids = proc_info.Pids
 			pe.Creds = proc_info.Creds
@@ -155,6 +152,7 @@ func (s *svc) Update(ev *beat.Event) error {
 		proc, _ = s.db.GetProcess(uint32(pid))
 		s.logger.Debugf("Final proc: %v", proc)
 	}
+
 	return nil
 }
 

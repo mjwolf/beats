@@ -115,7 +115,7 @@ func (p *addSessionMetadata) Run(ev *beat.Event) (*beat.Event, error) {
 		return ev, nil
 	}
 
-	err = p.provider.Update(ev)
+	err = p.provider.UpdateDB(ev)
 	if err != nil {
 		// process update may fail, and will often fail with procfs, if the
 		// process has exited before it can be read. This is best-effort, and

@@ -169,8 +169,8 @@ func (s *svc) Stop() error {
 	s.stop <- true
 	return nil
 }
-func (s *svc) Update(ev *beat.Event) error {
-	// no-op for ebpf
+func (s *svc) UpdateDB(ev *beat.Event) error {
+	// no-op for ebpf, DB is updated from pushed ebpf events
 	return nil
 }
 

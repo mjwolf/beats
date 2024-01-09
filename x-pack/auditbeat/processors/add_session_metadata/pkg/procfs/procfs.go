@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	p "github.com/prometheus/procfs"
 
@@ -29,12 +28,7 @@ func MinorTty(ttyNr uint32) uint16 {
 
 // this interface exists so that we can inject a mock procfs reader for deterministic testing
 type Reader interface {
-	GetBootTime() (time.Time, error)
-	GetExe(pid uint32) (string, error)
-	GetEnviron(pid uint32) (map[string]string, error)
-	GetCwd(pid uint32) (string, error)
-	GetStat(pid uint32) (Stat, error)
-	GetProcess(pid int) (*ProcessInfo, error)
+	GetProcess(pid uint32) (ProcessInfo, error)
 	GetAllProcesses() ([]ProcessInfo, error)
 }
 
@@ -124,13 +118,13 @@ func credsFromProc(proc p.Proc) (types.CredInfo, error) {
 	}, nil
 }
 
-func (r ProcfsReader) getProcessInfo(proc p.Proc) (*ProcessInfo, error) {
+func (r ProcfsReader) getProcessInfo(proc p.Proc) (ProcessInfo, error) {
 	pid := uint32(proc.PID)
 	// All other info can be best effort, but failing to get pid info and
 	// start time is needed to register the process in the database
 	stat, err := proc.Stat()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read /proc/%d/stat: %v", pid, err)
+		return ProcessInfo{}, fmt.Errorf("failed to read /proc/%d/stat: %v", pid, err)
 	}
 
 	argv, err := proc.CmdLine()
@@ -149,7 +143,7 @@ func (r ProcfsReader) getProcessInfo(proc p.Proc) (*ProcessInfo, error) {
 		}
 	}
 
-	environ, err := r.GetEnviron(pid)
+	environ, err := r.getEnviron(pid)
 	if err != nil {
 		environ = nil
 	}
@@ -183,7 +177,7 @@ func (r ProcfsReader) getProcessInfo(proc p.Proc) (*ProcessInfo, error) {
 	}
 
 	startTimeNs := timeutils.TicksToNs(stat.Starttime)
-	return &ProcessInfo{
+	return ProcessInfo{
 		Pids: types.PidInfo{
 			StartTimeNs: startTimeNs,
 			Tid:         pid,
@@ -205,10 +199,10 @@ func (r ProcfsReader) getProcessInfo(proc p.Proc) (*ProcessInfo, error) {
 	}, nil
 }
 
-func (r ProcfsReader) GetProcess(pid int) (*ProcessInfo, error) {
-	proc, err := p.NewProc(pid)
+func (r ProcfsReader) GetProcess(pid uint32) (ProcessInfo, error) {
+	proc, err := p.NewProc(int(pid))
 	if err != nil {
-		return nil, err
+		return ProcessInfo{}, err
 	}
 	return r.getProcessInfo(proc)
 }
@@ -225,45 +219,13 @@ func (r ProcfsReader) GetAllProcesses() ([]ProcessInfo, error) {
 		if err != nil {
 			r.logger.Warnf("failed to read process info for %v", proc.PID)
 		}
-		ret = append(ret, *process_info)
+		ret = append(ret, process_info)
 	}
 
 	return ret, nil
 }
 
-func (r ProcfsReader) GetBootTime() (time.Time, error) {
-	fs, err := p.NewDefaultFS()
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	stat, err := fs.Stat()
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	return time.Unix(int64(stat.BootTime), 0), nil
-}
-
-func (r ProcfsReader) GetExe(pid uint32) (string, error) {
-	proc, err := p.NewProc(int(pid))
-	if err != nil {
-		return "", err
-	}
-
-	return proc.Executable()
-}
-
-func (r ProcfsReader) GetCwd(pid uint32) (string, error) {
-	proc, err := p.NewProc(int(pid))
-	if err != nil {
-		return "", err
-	}
-
-	return proc.Cwd()
-}
-
-func (r ProcfsReader) GetEnviron(pid uint32) (map[string]string, error) {
+func (r ProcfsReader) getEnviron(pid uint32) (map[string]string, error) {
 	proc, err := p.NewProc(int(pid))
 	if err != nil {
 		return nil, err
@@ -285,14 +247,4 @@ func (r ProcfsReader) GetEnviron(pid uint32) (map[string]string, error) {
 	}
 
 	return ret, nil
-}
-
-func (r ProcfsReader) GetStat(pid uint32) (Stat, error) {
-	proc, err := p.NewProc(int(pid))
-	if err != nil {
-		return Stat{}, err
-	}
-
-	ret, err := proc.Stat()
-	return Stat(ret), err
 }

@@ -11,5 +11,5 @@ import (
 type Provider interface {
 	Start() error
 	Stop() error
-	Update(*beat.Event) error
+	UpdateDB(*beat.Event) error
 }
