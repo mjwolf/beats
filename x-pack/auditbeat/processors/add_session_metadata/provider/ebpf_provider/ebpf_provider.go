@@ -20,40 +20,33 @@ import (
 	"github.com/elastic/ebpfevents"
 )
 
-type svc struct {
+type prvdr struct {
 	ctx                context.Context
 	logger             logp.Logger
 	db                 processdb.DB
-	stop               chan (bool)
-	ready, failedState bool
 }
 
 func NewProvider(ctx context.Context, logger logp.Logger, db processdb.DB) (provider.Provider, error) {
-	return &svc{
+	p := prvdr{
 		ctx:    ctx,
 		logger: logger,
 		db:     db,
-	}, nil
-}
+	}
 
-func (s *svc) Start() error {
 	l, err := ebpfevents.NewLoader()
 	if err != nil {
-		s.logger.Errorf("loading ebpf: %w", err)
-		return err
+		p.logger.Errorf("loading ebpf: %w", err)
+		return prvdr{}, err
 	}
 
 	events := make(chan ebpfevents.Event)
 	errors := make(chan error)
-	s.stop = make(chan bool)
 
-	go l.EventLoop(s.ctx, events, errors)
+	go l.EventLoop(p.ctx, events, errors)
 
 	go func(logger logp.Logger) {
 		for {
 			select {
-			case <-s.stop:
-				break
 			case err := <-errors:
 				logger.Errorf("recv'd error: %w", err)
 				continue
@@ -96,9 +89,8 @@ func (s *svc) Start() error {
 							CapPermitted: body.Creds.CapPermitted,
 							CapEffective: body.Creds.CapEffective,
 						},
-						PidsSsCgroupPath: body.CgroupPath,
 					}
-					s.db.InsertFork(pe)
+					p.db.InsertFork(pe)
 				case ebpfevents.EventTypeProcessExec:
 					body, ok := ev.Body.(*ebpfevents.ProcessExec)
 					if !ok {
@@ -132,9 +124,8 @@ func (s *svc) Start() error {
 						Argv:             deepcopy.Copy(body.Argv).([]string),
 						Env:              deepcopy.Copy(body.Env).(map[string]string),
 						Filename:         body.Filename,
-						PidsSsCgroupPath: body.CgroupPath,
 					}
-					s.db.InsertExec(pe)
+					p.db.InsertExec(pe)
 				case ebpfevents.EventTypeProcessExit:
 					body, ok := ev.Body.(*ebpfevents.ProcessExit)
 					if !ok {
@@ -151,29 +142,18 @@ func (s *svc) Start() error {
 							StartTimeNs: body.Pids.StartTimeNs,
 						},
 						ExitCode:         body.ExitCode,
-						PidsSsCgroupPath: body.CgroupPath,
 					}
-					s.db.InsertExit(pe)
+					p.db.InsertExit(pe)
 				}
 				continue
 			}
 		}
-	}(s.logger)
+	}(p.logger)
 
-	s.ready = true
-	return nil
+	return &p, nil
 }
 
-func (s *svc) Stop() error {
-	s.ready = false
-	s.stop <- true
-	return nil
-}
-func (s *svc) UpdateDB(ev *beat.Event) error {
+func (s prvdr) UpdateDB(ev *beat.Event) error {
 	// no-op for ebpf, DB is updated from pushed ebpf events
 	return nil
-}
-
-func (s *svc) Started() bool {
-	return s.ready || s.failedState
 }

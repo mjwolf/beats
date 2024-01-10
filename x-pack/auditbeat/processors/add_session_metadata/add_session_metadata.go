@@ -38,7 +38,6 @@ var reg *monitoring.Registry
 
 func init() {
 	processors.RegisterPlugin(processorName, New)
-
 	reg = monitoring.Default.NewRegistry(logName, monitoring.DoNotReport)
 }
 
@@ -58,58 +57,42 @@ func New(cfg *config.C) (beat.Processor, error) {
 	logger := logp.NewLogger(logName)
 
 	ctx := context.TODO()
+	reader := procfs.NewProcfsReader(*logger)
+	db := processdb.NewSimpleDB(reader, *logger)
+
+	backfilledPIDs := db.ScrapeProcfs()
+	logger.Debugf("backfilled %d processes", len(backfilledPIDs))
 
 	switch c.Backend {
 	case "ebpf":
-		reader := procfs.NewProcfsReader(*logger)
-		db := processdb.NewSimpleDB(reader, *logger)
-
 		p, err := ebpf_provider.NewProvider(ctx, *logger, db)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create ebpf provider: %w", err)
 		}
-
-		p.Start()
-
-		backfilledPIDs := db.ScrapeProcfs()
-		logger.Debugf("backfilled %d processes", len(backfilledPIDs))
-
 		return &addSessionMetadata{
 			config:   c,
 			logger:   logger,
 			db:       db,
 			provider: p,
 		}, nil
-
 	case "procfs":
-		reader := procfs.NewProcfsReader(*logger)
-		db := processdb.NewSimpleDB(reader, *logger)
-
 		p, err := procfs_provider.NewProvider(ctx, *logger, db, reader, c.PidField)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create procfs provider: %w", err)
 		}
-
-		p.Start()
-
-		backfilledPIDs := db.ScrapeProcfs()
-		logger.Debugf("backfilled %d processes", len(backfilledPIDs))
-
 		return &addSessionMetadata{
 			config:   c,
 			logger:   logger,
 			db:       db,
 			provider: p,
 		}, nil
-
-
 	default:
 		return nil, fmt.Errorf("unknown backend configuration")
 	}
 }
 
 func (p *addSessionMetadata) Run(ev *beat.Event) (*beat.Event, error) {
-	 pid, err := ev.GetValue(p.config.PidField)
+	 _, err := ev.GetValue(p.config.PidField)
 	 if err != nil {
 		// Do not attempt to enrich events without PID; it's not a supported event
 		return ev, nil
@@ -117,17 +100,13 @@ func (p *addSessionMetadata) Run(ev *beat.Event) (*beat.Event, error) {
 
 	err = p.provider.UpdateDB(ev)
 	if err != nil {
-		// process update may fail, and will often fail with procfs, if the
-		// process has exited before it can be read. This is best-effort, and
-		//the processor can continue with the information it has.
-		p.logger.Debugf("failed to update process for pid %v: %w", pid, err)
+		return ev, err
 	}
 
 	result, err := p.enrich(ev)
 	if err != nil {
-		return nil, fmt.Errorf("enriching event: %w", err)
+		return ev, fmt.Errorf("enriching event: %w", err)
 	}
-
 	return result, nil
 }
 
@@ -149,9 +128,7 @@ func (p *addSessionMetadata) enrich(ev *beat.Event) (*beat.Event, error) {
 
 	fullProcess, err := p.db.GetProcess(pid)
 	if err != nil {
-		p.logger.Errorf("pid %v not found in db: %w", pid, err)
-		// return the event so it's not dropped entirely
-		return ev, nil
+		return nil, fmt.Errorf("pid %v not found in db: %w", pid, err)
 	}
 
 	result := ev.Clone()
@@ -162,8 +139,7 @@ func (p *addSessionMetadata) enrich(ev *beat.Event) (*beat.Event, error) {
 
 	if p.config.ReplaceFields {
 		if err := p.replaceFields(result); err != nil {
-			p.logger.Errorf("replace fields: %w", err)
-			//return nil, err
+			return nil, fmt.Errorf("replace fields: %w", err)
 		}
 	}
 	return result, nil

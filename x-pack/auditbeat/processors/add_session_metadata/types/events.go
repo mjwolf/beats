@@ -17,7 +17,6 @@ const (
 
 type (
 	Field     uint32
-	VarlenMap map[Field]any
 )
 
 const (
@@ -25,92 +24,71 @@ const (
 	Argv
 	Env
 	Filename
-	PidsSsCgroupPath
 )
 
 type PidInfo struct {
-	StartTimeNs uint64 `json:"-"`
-	Tid         uint32 `json:"-"`
-	Tgid        uint32 `json:"tgid"`
-	Vpid        uint32 `json:"-"`
-	Ppid        uint32 `json:"-"`
-	Pgid        uint32 `json:"-"`
-	Sid         uint32 `json:"-"`
+	StartTimeNs uint64
+	Tid         uint32
+	Tgid        uint32
+	Vpid        uint32
+	Ppid        uint32
+	Pgid        uint32
+	Sid         uint32
 }
 
 type CredInfo struct {
-	Ruid         uint32 `json:"-"`
-	Rgid         uint32 `json:"-"`
-	Euid         uint32 `json:"-"`
-	Egid         uint32 `json:"-"`
-	Suid         uint32 `json:"-"`
-	Sgid         uint32 `json:"-"`
-	CapPermitted uint64 `json:"cap_permitted,string"`
-	CapEffective uint64 `json:"cap_effective,string"`
+	Ruid         uint32
+	Rgid         uint32
+	Euid         uint32
+	Egid         uint32
+	Suid         uint32
+	Sgid         uint32
+	CapPermitted uint64
+	CapEffective uint64
 }
 
 type TtyWinsize struct {
-	Rows uint16 `json:"-"`
-	Cols uint16 `json:"-"`
+	Rows uint16
+	Cols uint16
 }
 
 type TtyTermios struct {
-	CIflag uint32 `json:"-"`
-	COflag uint32 `json:"-"`
-	CLflag uint32 `json:"-"`
-	CCflag uint32 `json:"-"`
+	CIflag uint32
+	COflag uint32
+	CLflag uint32
+	CCflag uint32
 }
 
 type TtyDev struct {
-	Minor   uint16     `json:"-"`
-	Major   uint16     `json:"-"`
-	Winsize TtyWinsize `json:"-"`
-	Termios TtyTermios `json:"-"`
-}
-
-type Event struct {
-	Meta Meta `json:"meta"`
-	Body any  `json:"body"`
-}
-
-type Meta struct {
-	Type        Type      `json:"type"`
-	TimestampNs uint64    `json:"-"`
+	Minor   uint16
+	Major   uint16
+	Winsize TtyWinsize
+	Termios TtyTermios
 }
 
 type ProcessForkEvent struct {
-	ParentPids PidInfo  `json:"parent_pids"`
-	ChildPids  PidInfo  `json:"child_pids"`
-	Creds      CredInfo `json:"creds"`
-
-	// varlen fields
-	PidsSsCgroupPath string `json:"-"`
+	ParentPids PidInfo
+	ChildPids  PidInfo
+	Creds      CredInfo
 }
 
 type ProcessExecEvent struct {
-	Pids  PidInfo  `json:"pids"`
-	Creds CredInfo `json:"creds"`
-	CTty  TtyDev   `json:"-"`
+	Pids  PidInfo
+	Creds CredInfo
+	CTty  TtyDev
 
 	// varlen fields
-	Cwd              string            `json:"cwd"`
-	Argv             []string          `json:"-"`
-	Env              map[string]string `json:"-"`
-	Filename         string            `json:"filename"`
-	PidsSsCgroupPath string            `json:"-"`
+	Cwd              string
+	Argv             []string
+	Env              map[string]string
+	Filename         string
 }
 
 type ProcessExitEvent struct {
-	Pids     PidInfo `json:"pids"`
-	ExitCode int32   `json:"exit_code"`
-
-	// varlen fields
-	PidsSsCgroupPath string `json:"-"`
+	Pids     PidInfo
+	ExitCode int32
 }
 
 type ProcessSetsidEvent struct {
-	Pids PidInfo `json:"pids"`
-
-	// varlen fields
-	PidsSsCgroupPath string `json:"-"`
+	Pids PidInfo
 }

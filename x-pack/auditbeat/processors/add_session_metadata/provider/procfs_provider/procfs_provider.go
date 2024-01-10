@@ -7,7 +7,6 @@ package procfs_provider
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/elastic/beats/v7/libbeat/beat"
 	"github.com/elastic/beats/v7/x-pack/auditbeat/processors/add_session_metadata/pkg/processdb"
@@ -22,18 +21,16 @@ const (
 	syscallField = "auditd.data.syscall"
 )
 
-type svc struct {
+type prvdr struct {
 	ctx                context.Context
 	logger             logp.Logger
 	db                 processdb.DB
 	reader procfs.Reader
-	stop               chan (bool)
-	ready, failedState bool
 	pidField string
 }
 
 func NewProvider(ctx context.Context, logger logp.Logger, db processdb.DB, reader procfs.Reader, pidField string) (provider.Provider, error) {
-	return &svc{
+	return prvdr{
 		ctx:    ctx,
 		logger: logger,
 		db:     db,
@@ -42,16 +39,8 @@ func NewProvider(ctx context.Context, logger logp.Logger, db processdb.DB, reade
 	}, nil
 }
 
-func (s *svc) Start() error {
-	return nil
-}
-
-func (s *svc) Stop() error {
-	return nil
-}
-
 // UpdateDB will update the process DB with process info from procfs or the event itself
-func (s *svc) UpdateDB(ev *beat.Event) error {
+func (s prvdr) UpdateDB(ev *beat.Event) error {
 	pi, err := ev.Fields.GetValue(s.pidField)
 	if err != nil {
 		return fmt.Errorf("event not supported, no pid")
@@ -81,7 +70,6 @@ func (s *svc) UpdateDB(ev *beat.Event) error {
 			pe.Argv = proc_info.Argv
 			pe.Env = proc_info.Env
 			pe.Filename = proc_info.Filename
-			pe.PidsSsCgroupPath = proc_info.CGroupPath
 		} else {
 			s.logger.Errorf("get process info from proc for pid %v: %w", pid, err)
 			// If proc scraping failed, gather as much info as possible from syscalls
@@ -125,19 +113,15 @@ func (s *svc) UpdateDB(ev *beat.Event) error {
 		}
 		s.db.InsertExit(pe)
 	case "setsid":
-		s.logger.Debug("got setsid!")
-		proc, err := s.db.GetProcess(uint32(pid))
-		if err == nil {
-			s.logger.Debug("found!")
-		}
-		s.logger.Debugf("Initial proc: %v", proc)
-
-		intr, err := ev.Fields.GetValue("auditd.data.exit")
+		intr, err := ev.Fields.GetValue("auditd.result")
 		if err != nil {
 			return fmt.Errorf("syscall exit value not found")
 		}
-		ret, _ := strconv.Atoi(intr.(string))
-		if err == nil && ret > 0 {
+		result, ok := intr.(string)
+		if !ok {
+			return fmt.Errorf("\"auditd.result\" not string")
+		}
+		if result == "success" {
 			setsid_ev := types.ProcessSetsidEvent {
 				Pids: types.PidInfo {
 					Tgid: uint32(pid),
@@ -145,17 +129,11 @@ func (s *svc) UpdateDB(ev *beat.Event) error {
 				},
 			}
 			s.db.InsertSetsid(setsid_ev)
-		} else {
-			s.logger.Debugf("setsid syscall failed!")
 		}
-
-		proc, _ = s.db.GetProcess(uint32(pid))
-		s.logger.Debugf("Final proc: %v", proc)
 	}
-
 	return nil
 }
 
-func (s *svc) SetPidField (pidField string) {
+func (s *prvdr) SetPidField (pidField string) {
 	s.pidField = pidField
 }

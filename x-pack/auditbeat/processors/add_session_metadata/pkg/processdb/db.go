@@ -17,7 +17,6 @@ type DB interface {
 	InsertExit(exit types.ProcessExitEvent) error
 	GetProcess(pid uint32) (types.Process, error)
 	GetEntryType(pid uint32) (EntryType, error)
-	GetCgroupPath(pid uint32) (string, error)
 	ScrapeProcfs() []uint32
 }
 

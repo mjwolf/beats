@@ -31,7 +31,6 @@ type Process struct {
 	Cwd              string
 	Env              map[string]string
 	Filename         string
-	PidsSsCgroupPath string
 }
 
 var (
@@ -276,7 +275,6 @@ func (db *SimpleDB) InsertExec(exec types.ProcessExecEvent) error {
 		Cwd:              exec.Cwd,
 		Env:              exec.Env,
 		Filename:         exec.Filename,
-		PidsSsCgroupPath: exec.PidsSsCgroupPath,
 	}
 
 	db.processes[exec.Pids.Tgid] = proc
@@ -621,16 +619,6 @@ func (db *SimpleDB) GetEntryType(pid uint32) (EntryType, error) {
 	return EntryUnknown, nil
 }
 
-func (db *SimpleDB) GetCgroupPath(pid uint32) (string, error) {
-	db.RLock()
-	defer db.RUnlock()
-
-	if proc, ok := db.processes[pid]; ok {
-		return proc.PidsSsCgroupPath, nil
-	}
-	return "", errors.New("process not found")
-}
-
 func (db *SimpleDB) ScrapeProcfs() []uint32 {
 	db.Lock()
 	defer db.Unlock()
@@ -659,7 +647,6 @@ func (db *SimpleDB) ScrapeProcfs() []uint32 {
 			Cwd:              procInfo.Cwd,
 			Env:              procInfo.Env,
 			Filename:         procInfo.Filename,
-			PidsSsCgroupPath: procInfo.CGroupPath,
 		}
 
 		db.insertProcess(process)
