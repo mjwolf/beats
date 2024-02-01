@@ -35,10 +35,12 @@ func init() {
 }
 
 type addSessionMetadata struct {
-	config   Config
-	logger   *logp.Logger
-	db       *processdb.DB
-	provider provider.Provider
+	config         Config
+	logger         *logp.Logger
+	dbe            *processdb.DB
+	dbp            *processdb.DB
+	providerEbpf   provider.Provider
+	providerProcfs provider.Provider
 }
 
 func New(cfg *config.C) (beat.Processor, error) {
@@ -51,57 +53,80 @@ func New(cfg *config.C) (beat.Processor, error) {
 
 	ctx := context.TODO()
 	reader := procfs.NewProcfsReader(*logger)
-	db := processdb.NewDB(reader, *logger)
+	dbe := processdb.NewDB(reader, *logger)
+	dbp := processdb.NewDB(reader, *logger)
 
-	backfilledPIDs := db.ScrapeProcfs()
-	logger.Debugf("backfilled %d processes", len(backfilledPIDs))
+	backfilledPIDs := dbe.ScrapeProcfs()
+	logger.Debugf("backfilled %d processes for ebpf", len(backfilledPIDs))
 
-	var p provider.Provider
-	var err error
+	backfilledPIDs = dbp.ScrapeProcfs()
+	logger.Debugf("backfilled %d processes for procfs", len(backfilledPIDs))
 
-	switch c.Backend {
-	case "auto":
-		p, err = ebpf_provider.NewProvider(ctx, logger, db)
-		if err != nil {
-			// Most likely cause of error is not supporting ebpf on system, try procfs
-			p, err = procfs_provider.NewProvider(ctx, logger, db, reader, c.PidField)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create provider: %w", err)
-			}
-		}
-	case "ebpf":
-		p, err = ebpf_provider.NewProvider(ctx, logger, db)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create ebpf provider: %w", err)
-		}
-	case "procfs":
-		p, err = procfs_provider.NewProvider(ctx, logger, db, reader, c.PidField)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create ebpf provider: %w", err)
-		}
-	default:
-		return nil, fmt.Errorf("unknown backend configuration")
+	pe, err := ebpf_provider.NewProvider(ctx, logger, dbe)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ebpf provider: %w", err)
 	}
+	pp, err := procfs_provider.NewProvider(ctx, logger, dbp, reader, c.PidField)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create procfs provider: %w", err)
+	}
+
 	return &addSessionMetadata{
-		config:   c,
-		logger:   logger,
-		db:       db,
-		provider: p,
+		config:         c,
+		logger:         logger,
+		dbe:            dbe,
+		dbp:            dbp,
+		providerEbpf:   pe,
+		providerProcfs: pp,
 	}, nil
 }
 
 func (p *addSessionMetadata) Run(ev *beat.Event) (*beat.Event, error) {
-	_, err := ev.GetValue(p.config.PidField)
+	pid, err := ev.GetValue(p.config.PidField)
 	if err != nil {
 		// Do not attempt to enrich events without PID; it's not a supported event
 		return ev, nil //nolint:nilerr // Running on events without PID is expected
 	}
-
-	err = p.provider.UpdateDB(ev)
-	if err != nil {
-		return ev, err
+	// cmp code
+	for _, provider := range []provider.Provider{p.providerEbpf, p.providerProcfs} {
+		err = provider.UpdateDB(ev)
+		if err != nil {
+			return ev, err
+		}
 	}
 
+	pidu, _ := pidToUInt32(pid)
+	procEbpf, err := p.dbe.GetProcess(pidu)
+	if err != nil {
+		p.logger.Errorf("failed to read %v from ebpf db: %w", pidu, err)
+	}
+	procProcfs, err := p.dbp.GetProcess(pidu)
+	if err != nil {
+		p.logger.Errorf("failed to read %v from procfs db: %w", pidu, err)
+	}
+	//cmp
+	if procEbpf.PID != procProcfs.PID {
+		p.logger.Errorf("PID differ: %v, %v", procEbpf.PID, procProcfs.PID)
+	}
+
+	if procEbpf.Parent.PID != procProcfs.Parent.PID {
+		p.logger.Errorf("PPID differ for %v: %v, %v", pidu, procEbpf.Parent.PID, procProcfs.Parent.PID)
+	}
+
+	if procEbpf.GroupLeader.PID != procProcfs.GroupLeader.PID {
+		p.logger.Errorf("Group Leader differ for %v: %v, %v", pidu, procEbpf.GroupLeader.PID, procProcfs.GroupLeader.PID)
+	}
+
+	if procEbpf.SessionLeader.PID != procProcfs.SessionLeader.PID {
+		p.logger.Errorf("Session Leader differ for %v: %v, %v", pidu, procEbpf.SessionLeader.PID, procProcfs.SessionLeader.PID)
+	}
+	//	equal := cmp.Equal(procEbpf, procProcfs)
+	//	if !equal {
+	//		diff := cmp.Diff(procEbpf, procProcfs)
+	//		p.logger.Errorf("proc not equal!\n\n%s", diff)
+	//	}
+
+	// end cmp code
 	result, err := p.enrich(ev)
 	if err != nil {
 		return ev, fmt.Errorf("enriching event: %w", err)
@@ -124,7 +149,7 @@ func (p *addSessionMetadata) enrich(ev *beat.Event) (*beat.Event, error) {
 		return nil, fmt.Errorf("cannot parse pid field '%s': %w", p.config.PidField, err)
 	}
 
-	fullProcess, err := p.db.GetProcess(pid)
+	fullProcess, err := p.dbp.GetProcess(pid)
 	if err != nil {
 		return nil, fmt.Errorf("pid %v not found in db: %w", pid, err)
 	}
