@@ -31,9 +31,21 @@ func newNamesCache() *namesCache {
 	}
 	return &u
 }
-
 // getUserName will return the name associated with the user ID, if it exists
 func (u *namesCache) getUserName(id string) (string, bool) {
+	return u.getUserNameCached(id)
+}
+
+func (u *namesCache) getUserNameUncached(id string) (string, bool) {
+	user, err := user.LookupId(id)
+	if err != nil {
+	  return "", false
+	}
+	return user.Username, true
+}
+
+// getUserName will return the name associated with the user ID, if it exists
+func (u *namesCache) getUserNameCached(id string) (string, bool) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
