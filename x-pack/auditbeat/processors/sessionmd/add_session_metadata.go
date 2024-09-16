@@ -183,7 +183,7 @@ func (p *addSessionMetadata) enrich(ev *beat.Event) (*beat.Event, error) {
 	}
 
 	var fullProcess types.Process
-	if p.backend == "quark" {
+	if p.backend == "quark" || p.backend == "compare" {
 		// Quark doesn't enrich with the processor DB;  process info is taken directly from quark cache
 		proc, err := p.provider.GetProcess(pid)
 		if err != nil {
