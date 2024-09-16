@@ -41,6 +41,7 @@ type addSessionMetadata struct {
 	logger   *logp.Logger
 	db       *processdb.DB
 	provider provider.Provider
+	provider2 provider.Provider
 	backend  string
 }
 
@@ -65,6 +66,7 @@ func New(cfg *cfg.C) (beat.Processor, error) {
 	}
 
 	var p provider.Provider
+	var p2 provider.Provider
 
 	switch c.Backend {
 	case "auto":
@@ -95,6 +97,15 @@ func New(cfg *cfg.C) (beat.Processor, error) {
 			return nil, fmt.Errorf("failed to create quark provider: %w", err)
 		}
 		db.Close() // db not used with quark
+	case "compare":
+		p, err = quarkprovider.NewProvider(ctx, logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create quark provider in compare: %w", err)
+		}
+		p2, err = ebpfprovider.NewProvider(ctx, logger, db)
+		if err != nil {
+			return nil, fmt.Errorf("failed to created ebpf provider with compare: %w", err)
+		}
 	default:
 		return nil, fmt.Errorf("unknown backend configuration")
 	}
@@ -103,6 +114,7 @@ func New(cfg *cfg.C) (beat.Processor, error) {
 		logger:   logger,
 		db:       db,
 		provider: p,
+		provider2: p2,
 		backend:  c.Backend,
 	}, nil
 }
@@ -129,11 +141,24 @@ func (p *addSessionMetadata) Run(ev *beat.Event) (*beat.Event, error) {
 	if err != nil {
 		return ev, err
 	}
+	if p.provider2 != nil {
+		err = p.provider2.SyncDB(ev, pid)
+		if err != nil {
+			return ev, err
+		}
+	}
 
 	result, err := p.enrich(ev)
 	if err != nil {
 		return ev, fmt.Errorf("enriching event: %w", err)
 	}
+	if p.provider2 != nil {
+		result, err = p.enrich2(result)
+		if err != nil {
+			return ev, fmt.Errorf("enrich2: %w", err)
+		}
+	}
+
 	return result, nil
 }
 
@@ -191,6 +216,43 @@ func (p *addSessionMetadata) enrich(ev *beat.Event) (*beat.Event, error) {
 		return nil, fmt.Errorf("merging enriched fields with event: %w", err)
 	}
 	result.Fields["process"] = m
+	return result, nil
+}
+
+//Use the 2nd provider, and add all enriched data to the "reference" field
+func (p *addSessionMetadata) enrich2(ev *beat.Event) (*beat.Event, error) {
+	pidIf, err := ev.GetValue(p.config.PIDField)
+	if err != nil {
+		return nil, err
+	}
+	pid, err := pidToUInt32(pidIf)
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse pid field '%s': %w", p.config.PIDField, err)
+	}
+
+	var fullProcess types.Process
+	fullProcess, err = p.db.GetProcess(pid)
+	if err != nil {
+		e := fmt.Errorf("pid %v not found in db: %w", pid, err)
+		p.logger.Errorf("%v", e)
+		return nil, e
+	}
+	processMap := fullProcess.ToMap()
+
+	if b, err := ev.Fields.HasKey("process"); !b || err != nil {
+		return nil, fmt.Errorf("no process field in event")
+	}
+	m, ok := tryToMapStr(ev.Fields["process"])
+	if !ok {
+		return nil, fmt.Errorf("process field type not supported")
+	}
+
+	result := ev.Clone()
+	err = mapstr.MergeFieldsDeep(m, processMap, true)
+	if err != nil {
+		return nil, fmt.Errorf("merging enriched fields with event: %w", err)
+	}
+	result.Fields["reference"] = m
 	return result, nil
 }
 
